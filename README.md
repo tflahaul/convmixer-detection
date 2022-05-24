@@ -1,3 +1,7 @@
-## Adapting ConvMixer for object detection using the DETR approach
+## ConvMixer for object detection using the DETR approach
 
 Dataset : https://www.kaggle.com/datasets/thomasflahault/42aivision
+
+TODO:
+- Implementation of the mAP-50
+- Data augmentation
