@@ -5,7 +5,8 @@ import time
 import config
 
 from torchvision import transforms as trsfm
-from loss import ObjectDetectionCriterion
+from matplotlib import pyplot as plt
+from loss import DETRCriterion
 from model import ConvMixer
 from PIL import Image
 
@@ -35,24 +36,16 @@ class PascalVOC(torch.utils.data.Dataset):
 	def __len__(self) -> int:
 		return len(self.items)
 
-def fit(model, optimizer, criterion, train_set) -> None:
-	for epoch in range(1, config.MAX_ITER + 1):
-		optimizer.zero_grad()
-		criterion.zero_losses()
-		running_loss, start = 0, time.time()
-		for minibatch, (images, targets) in enumerate(train_set, 1):
-			out = model(images.to(config.DEVICE))
-			loss = criterion(out, targets)
-			running_loss += loss.item()
-			loss.backward()
-			if minibatch % config.SUBDIVISIONS == 0:
-				optimizer.step()
-				optimizer.zero_grad()
-		print(f"epoch {epoch:>3d}/{config.MAX_ITER:<3d}| loss:{running_loss:.5f}, loss-boxes:{criterion.losses['boxes']:.4f}, loss-cls:{criterion.losses['classes']:.4f}, card:{criterion.losses['cardinality']:.4f}, time:{time.time() - start:.2f}")
-	torch.save(model.state_dict(), 'convmixer-1152-3.pth')
+def plot_metrics(metrics: dict) -> None:
+	_, axes = plt.subplots(1, 3, figsize=(12, 4))
+	for index, (key, values) in enumerate(metrics.items()):
+		axes[index].plot(values)
+		axes[index].set_title(key)
+	plt.tight_layout()
+	plt.show()
 
 def main() -> None:
-	model = ConvMixer(3, 1152, 3, 9, 7, config.NUM_CLASSES).to(config.DEVICE) # 1536, 20
+	model = ConvMixer(3, 1536, 3, 9, 7, config.NUM_CLASSES).to(config.DEVICE) # 1536, 20
 	trainval_set = PascalVOC(config.DATASET_DIR)
 	train_set, test_set = torch.utils.data.random_split(
 		dataset=trainval_set,
@@ -71,10 +64,34 @@ def main() -> None:
 	optimizer = torch.optim.AdamW(
 		params=model.parameters(),
 		weight_decay=5e-4,
-		lr=1e-4)
-	criterion = ObjectDetectionCriterion(num_classes=config.NUM_CLASSES)
-	print(f'Number of trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}')
-	fit(model, optimizer, criterion, train_set)
+		lr=0.01)
+	scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+		optimizer=optimizer,
+		T_max=config.MAX_ITER,
+		eta_min=5e-5)
+	criterion = DETRCriterion(num_classes=config.NUM_CLASSES)
+	metrics = {'boxes': list(), 'classes': list(), 'cardinality': list()}
+
+	for epoch in range(1, config.MAX_ITER + 1):
+		optimizer.zero_grad()
+		criterion.zero_losses()
+		running_loss, start = 0, time.time()
+		for minibatch, (images, targets) in enumerate(train_set, 1):
+			out = model(images.to(config.DEVICE))
+			loss = criterion(out, targets)
+			running_loss += loss.item()
+			loss.backward()
+			if minibatch % config.SUBDIVISIONS == 0:
+				optimizer.step()
+				optimizer.zero_grad()
+				break
+		scheduler.step()
+		for key, value in criterion.losses.items():
+			metrics[key].append(value.item())
+		print(f"epoch {epoch:>2d}/{config.MAX_ITER:<2d}| loss:{running_loss:.3f}, {(', ').join([f'{k}:{v[-1]:.2f}' for k, v in metrics.items()])}, time:{time.time() - start:.0f}")
+
+	torch.save(model.state_dict(), 'convmixer-1536-3.pth')
+	plot_metrics(metrics)
 
 if __name__ == '__main__':
 	main()

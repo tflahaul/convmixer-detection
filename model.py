@@ -13,12 +13,12 @@ class DetectionHead(torch.nn.Module):
 		super(DetectionHead, self).__init__()
 		self.func = torch.nn.Sequential(
 			torch.nn.Conv2d(dim, 96, kernel_size=5, stride=5),
-			torch.nn.GroupNorm(1, 96),
 			torch.nn.GELU(),
+			torch.nn.GroupNorm(1, 96),
 			*(torch.nn.Sequential(
 				torch.nn.Conv2d(96, 96, kernel_size=3),
-				torch.nn.GroupNorm(1, 96),
-				torch.nn.GELU()) for d in range(depth)),
+				torch.nn.GELU(),
+				torch.nn.GroupNorm(1, 96)) for d in range(depth)),
 			torch.nn.Conv2d(96, (bbox_attrs + num_classes + 1), kernel_size=1))
 
 	def forward(self, inputs: torch.Tensor) -> torch.Tensor:

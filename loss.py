@@ -45,9 +45,9 @@ class HungarianMatcher(torch.nn.Module):
 		indices = [lsa(item[idx]) for idx, item in enumerate(costs.split([x.size(0) for x in targets], -1))]
 		return [(torch.LongTensor(i), torch.LongTensor(j)) for i, j in indices]
 
-class ObjectDetectionCriterion(torch.nn.Module):
+class DETRCriterion(torch.nn.Module):
 	def __init__(self, num_classes, eos_coef = 0.01) -> None:
-		super(ObjectDetectionCriterion, self).__init__()
+		super(DETRCriterion, self).__init__()
 		self.num_classes = num_classes
 		self.matcher = HungarianMatcher().to(config.DEVICE)
 		self.losses = dict({'boxes': 0, 'classes': 0, 'cardinality': 0})
@@ -60,7 +60,7 @@ class ObjectDetectionCriterion(torch.nn.Module):
 
 	@torch.no_grad()
 	def loss_cardinality(self, outputs, targets):
-		num_targets = torch.as_tensor([item.size(0) for item in targets], device=config.DEVICE).float()
+		num_targets = torch.Tensor([item.size(0) for item in targets], device=config.DEVICE)
 		predictions = torch.sum(outputs[..., 4:].argmax(-1) != self.num_classes, dim=1).float()
 		return F.l1_loss(predictions, num_targets)
 
