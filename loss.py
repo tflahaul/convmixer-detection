@@ -46,7 +46,7 @@ class HungarianMatcher(torch.nn.Module):
 		return [(torch.LongTensor(i), torch.LongTensor(j)) for i, j in indices]
 
 class DETRCriterion(torch.nn.Module):
-	def __init__(self, num_classes, eos_coef = 0.01) -> None:
+	def __init__(self, num_classes, eos_coef = 0.1) -> None:
 		super(DETRCriterion, self).__init__()
 		self.num_classes = num_classes
 		self.matcher = HungarianMatcher().to(config.DEVICE)
@@ -60,7 +60,7 @@ class DETRCriterion(torch.nn.Module):
 
 	@torch.no_grad()
 	def loss_cardinality(self, outputs, targets):
-		num_targets = torch.Tensor([item.size(0) for item in targets], device=config.DEVICE)
+		num_targets = torch.as_tensor([item.size(0) for item in targets], device=config.DEVICE).float()
 		predictions = torch.sum(outputs[..., 4:].argmax(-1) != self.num_classes, dim=1).float()
 		return F.l1_loss(predictions, num_targets)
 

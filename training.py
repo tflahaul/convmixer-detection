@@ -1,4 +1,3 @@
-import torchvision
 import torch
 import json
 import time
@@ -19,8 +18,8 @@ class PascalVOC(torch.utils.data.Dataset):
 		self.transforms = trsfm.Compose((
 			trsfm.Resize((416, 416)),
 			trsfm.ToTensor(),
-			trsfm.ConvertImageDtype(torch.float32)))
-#			trsfm.Normalize((0.4564, 0.4370, 0.4081), (0.2717, 0.2680, 0.2810))))
+			trsfm.ConvertImageDtype(torch.float32),
+			trsfm.Normalize((0.4564, 0.4370, 0.4081), (0.2717, 0.2680, 0.2810))))
 
 	@classmethod
 	def post_process_batch(self, items: list):
@@ -45,7 +44,7 @@ def plot_metrics(metrics: dict) -> None:
 	plt.show()
 
 def main() -> None:
-	model = ConvMixer(3, 1536, 3, 9, 7, config.NUM_CLASSES).to(config.DEVICE) # 1536, 20
+	model = ConvMixer(3, 1536, 20, 9, 7, config.NUM_CLASSES).to(config.DEVICE)
 	trainval_set = PascalVOC(config.DATASET_DIR)
 	train_set, test_set = torch.utils.data.random_split(
 		dataset=trainval_set,
@@ -63,8 +62,8 @@ def main() -> None:
 		batch_size=len(test_set))
 	optimizer = torch.optim.AdamW(
 		params=model.parameters(),
-		weight_decay=5e-4,
-		lr=0.01)
+		weight_decay=config.DECAY,
+		lr=config.LEARNING_RATE)
 	scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
 		optimizer=optimizer,
 		T_max=config.MAX_ITER,
@@ -73,8 +72,8 @@ def main() -> None:
 	metrics = {'boxes': list(), 'classes': list(), 'cardinality': list()}
 
 	for epoch in range(1, config.MAX_ITER + 1):
-		optimizer.zero_grad()
 		criterion.zero_losses()
+		optimizer.zero_grad()
 		running_loss, start = 0, time.time()
 		for minibatch, (images, targets) in enumerate(train_set, 1):
 			out = model(images.to(config.DEVICE))
@@ -82,15 +81,15 @@ def main() -> None:
 			running_loss += loss.item()
 			loss.backward()
 			if minibatch % config.SUBDIVISIONS == 0:
+				torch.nn.utils.clip_grad_norm_(model.parameters(), config.GRAD_NORM)
 				optimizer.step()
 				optimizer.zero_grad()
-				break
 		scheduler.step()
 		for key, value in criterion.losses.items():
 			metrics[key].append(value.item())
 		print(f"epoch {epoch:>2d}/{config.MAX_ITER:<2d}| loss:{running_loss:.3f}, {(', ').join([f'{k}:{v[-1]:.2f}' for k, v in metrics.items()])}, time:{time.time() - start:.0f}")
 
-	torch.save(model.state_dict(), 'convmixer-1536-3.pth')
+	torch.save(model.state_dict(), 'convmixer-1536-20.pth')
 	plot_metrics(metrics)
 
 if __name__ == '__main__':
