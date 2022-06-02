@@ -14,9 +14,10 @@ class PascalVOC(torch.utils.data.Dataset):
 		super(PascalVOC, self).__init__()
 		self.location = location
 		self.classes = open(f'{location}/classes.txt', mode='r').read().splitlines()
-		self.items = json.load(open(f'{location}/targets.json', mode='r'))
+		with open(f'{location}/targets.json', mode='r') as fd:
+			self.items = json.load(fd)
 		self.transforms = trsfm.Compose((
-			trsfm.Resize((416, 416)),
+			trsfm.Resize((config.IMG_SIZE, config.IMG_SIZE)),
 			trsfm.ToTensor(),
 			trsfm.ConvertImageDtype(torch.float32),
 			trsfm.Normalize((0.4564, 0.4370, 0.4081), (0.2717, 0.2680, 0.2810))))
@@ -40,6 +41,7 @@ def plot_metrics(metrics: dict) -> None:
 	for index, (key, values) in enumerate(metrics.items()):
 		axes[index].plot(values)
 		axes[index].set_title(key)
+		axes[index].yscale('log')
 	plt.tight_layout()
 	plt.show()
 
@@ -64,10 +66,6 @@ def main() -> None:
 		params=model.parameters(),
 		weight_decay=config.DECAY,
 		lr=config.LEARNING_RATE)
-	scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-		optimizer=optimizer,
-		T_max=config.MAX_ITER,
-		eta_min=5e-5)
 	criterion = DETRCriterion(num_classes=config.NUM_CLASSES)
 	metrics = {'boxes': list(), 'classes': list(), 'cardinality': list()}
 
@@ -84,7 +82,6 @@ def main() -> None:
 				torch.nn.utils.clip_grad_norm_(model.parameters(), config.GRAD_NORM)
 				optimizer.step()
 				optimizer.zero_grad()
-		scheduler.step()
 		for key, value in criterion.losses.items():
 			metrics[key].append(value.item())
 		print(f"epoch {epoch:>2d}/{config.MAX_ITER:<2d}| loss:{running_loss:.3f}, {(', ').join([f'{k}:{v[-1]:.2f}' for k, v in metrics.items()])}, time:{time.time() - start:.0f}")

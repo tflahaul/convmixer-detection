@@ -5,6 +5,7 @@ import config
 from torchvision.ops._box_convert import _box_cxcywh_to_xyxy as xywh_to_xyxy
 from scipy.optimize import linear_sum_assignment as lsa
 from torch.nn import functional as F
+from torch import Tensor
 
 def box_iou_union(boxes1, boxes2):
 	area1 = torchvision.ops.boxes.box_area(boxes1)
@@ -30,7 +31,7 @@ class HungarianMatcher(torch.nn.Module):
 		super(HungarianMatcher, self).__init__()
 
 	@torch.no_grad()
-	def forward(self, outputs: torch.Tensor, targets: list) -> list:
+	def forward(self, outputs: Tensor, targets: list) -> list:
 		B, N, L = outputs.shape
 		out_prob = outputs[..., 5:].view(-1, L - 5)
 		out_bbox = outputs[..., :4].view(-1, 4)
@@ -90,7 +91,7 @@ class DETRCriterion(torch.nn.Module):
 		tgt_idx = torch.cat([tgt for (_, tgt) in indices])
 		return batch_idx, tgt_idx
 
-	def forward(self, outputs: torch.Tensor, targets: list):
+	def forward(self, outputs: Tensor, targets: list):
 		targets = [item.to(config.DEVICE) for item in targets]
 		num_boxes = sum([item.size(0) for item in targets])
 		indices = self.matcher(outputs, targets)

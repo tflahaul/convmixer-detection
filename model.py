@@ -1,24 +1,25 @@
 import torch
+from torch import Tensor
 
 class Residual(torch.nn.Module):
 	def __init__(self, func) -> None:
 		super(Residual, self).__init__()
 		self.func = func
 
-	def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+	def forward(self, inputs: Tensor) -> Tensor:
 		return self.func(inputs) + inputs
 
 class DetectionHead(torch.nn.Module):
-	def __init__(self, dim: int, num_classes: int) -> None:
+	def __init__(self, dim: int, num_classes: int, filters: int = 96) -> None:
 		super(DetectionHead, self).__init__()
 		self.func = torch.nn.Sequential(
-			torch.nn.Conv2d(dim, 96, kernel_size=3, stride=3),
+			torch.nn.Conv2d(dim, filters, 3, 3),
 			torch.nn.GELU(),
-			torch.nn.GroupNorm(1, 96),
-			torch.nn.Conv2d(96, (5 + num_classes), kernel_size=1))
+			torch.nn.GroupNorm(1, filters),
+			torch.nn.Conv2d(filters, (5 + num_classes), 1))
 
-	def forward(self, inputs: torch.Tensor) -> torch.Tensor:
-		out = self.func(inputs)
+	def forward(self, inputs: Tensor) -> Tensor:
+		out = self.func(inputs) # downsample
 		B, C, H, W = out.shape
 		out = out.reshape(B, C, H * W).permute(0, 2, 1).contiguous()
 		out[..., :4] = out[..., :4].sigmoid()
