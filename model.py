@@ -1,5 +1,8 @@
 import torch
+
 from torch import Tensor
+from typing import OrderedDict
+from torchvision.ops import FeaturePyramidNetwork as FPN
 
 class Residual(torch.nn.Module):
 	def __init__(self, func) -> None:
@@ -12,16 +15,26 @@ class Residual(torch.nn.Module):
 class DetectionHead(torch.nn.Module):
 	def __init__(self, dim: int, num_classes: int, filters: int = 96) -> None:
 		super(DetectionHead, self).__init__()
-		self.func = torch.nn.Sequential(
-			torch.nn.Conv2d(dim, filters, 3, 3),
-			torch.nn.GELU(),
-			torch.nn.GroupNorm(1, filters),
-			torch.nn.Conv2d(filters, (5 + num_classes), 1))
+		self.fpn = FPN([filters * 2, filters * 3], (5 + num_classes))
+		self.conv0 = torch.nn.Sequential(
+			torch.nn.Conv2d(dim, filters, 9, 3),
+			torch.nn.SiLU(),
+			torch.nn.GroupNorm(1, filters))
+		self.conv1 = torch.nn.Sequential(
+			torch.nn.Conv2d(filters, filters * 2, 5),
+			torch.nn.SiLU(),
+			torch.nn.GroupNorm(1, filters * 2))
+		self.conv2 = torch.nn.Sequential(
+			torch.nn.Conv2d(filters * 2, filters * 3, 3),
+			torch.nn.SiLU(),
+			torch.nn.GroupNorm(1, filters * 3))
 
 	def forward(self, inputs: Tensor) -> Tensor:
-		out = self.func(inputs) # downsample
-		B, C, H, W = out.shape
-		out = out.reshape(B, C, H * W).permute(0, 2, 1).contiguous()
+		f0 = self.conv0(inputs) # downsample to 16x16
+		f1 = self.conv1(f0)
+		f2 = self.conv2(f1)
+		out = self.fpn(OrderedDict({'feat0': f1, 'feat1': f2}))
+		out = torch.cat([x.flatten(2, 3).permute(0, 2, 1).contiguous() for x in out.values()], dim=1)
 		out[..., :4] = out[..., :4].sigmoid()
 		out[..., 4:] = out[..., 4:].softmax(-1)
 		return out
