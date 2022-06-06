@@ -40,7 +40,7 @@ class HungarianMatcher(torch.nn.Module):
 
 		cost_class = -out_prob[:, tgt_classes]
 		cost_bbox = torch.cdist(out_bbox, tgt_bbox, p=1.0)
-		cost_giou = -generalized_box_iou(_box_cxcywh_to_xyxy(out_bbox), tgt_bbox)
+		cost_giou = -generalized_box_iou(out_bbox, tgt_bbox)
 		costs = ((cost_bbox * 5) + (cost_giou * 2) + (cost_class * 1)).view(B, N, -1).cpu()
 		indices = [lsa(item[idx]) for idx, item in enumerate(costs.split([x.size(0) for x in targets], -1))]
 		return [(torch.LongTensor(i), torch.LongTensor(j)) for i, j in indices]
@@ -74,7 +74,7 @@ class DETRCriterion(torch.nn.Module):
 
 	def loss_boxes(self, outputs, targets, indices, num_boxes):
 		idx = self._get_src_permutation_idx(indices)
-		bbox_out = _box_cxcywh_to_xyxy(outputs[..., :4][idx])
+		bbox_out = outputs[..., :4][idx]
 		bbox_tar = torch.cat([item[i, :4] for item, (_, i) in zip(targets, indices)], dim=0)
 		loss_bbox = F.l1_loss(bbox_out, bbox_tar, reduction='none')
 		loss_giou = torchvision.ops.generalized_box_iou_loss(bbox_out, bbox_tar)
@@ -91,6 +91,7 @@ class DETRCriterion(torch.nn.Module):
 		return batch_idx, tgt_idx
 
 	def forward(self, outputs: Tensor, targets: list):
+		outputs[..., :4] = _box_cxcywh_to_xyxy(outputs[..., :4])
 		targets = [item.to(config.DEVICE) for item in targets]
 		num_boxes = sum([item.size(0) for item in targets])
 		indices = self.matcher(outputs, targets)

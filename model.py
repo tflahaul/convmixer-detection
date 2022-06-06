@@ -18,15 +18,15 @@ class DetectionHead(torch.nn.Module):
 		self.fpn = FPN([filters * 2, filters * 3], (5 + num_classes))
 		self.conv0 = torch.nn.Sequential(
 			torch.nn.Conv2d(dim, filters, 9, 3),
-			torch.nn.SiLU(),
+			torch.nn.GELU(),
 			torch.nn.GroupNorm(1, filters))
 		self.conv1 = torch.nn.Sequential(
 			torch.nn.Conv2d(filters, filters * 2, 5),
-			torch.nn.SiLU(),
+			torch.nn.GELU(),
 			torch.nn.GroupNorm(1, filters * 2))
 		self.conv2 = torch.nn.Sequential(
 			torch.nn.Conv2d(filters * 2, filters * 3, 3),
-			torch.nn.SiLU(),
+			torch.nn.GELU(),
 			torch.nn.GroupNorm(1, filters * 3))
 
 	def forward(self, inputs: Tensor) -> Tensor:
@@ -49,14 +49,14 @@ def ConvMixer(
 ):
 	return torch.nn.Sequential(
 		torch.nn.Conv2d(in_channels, dim, patch_size, stride=patch_size),
-		torch.nn.GELU(),
+		torch.nn.SiLU(),
 		torch.nn.GroupNorm(1, dim),
 		*(torch.nn.Sequential(
 			Residual(torch.nn.Sequential(
 				torch.nn.Conv2d(dim, dim, kernel_size, groups=dim, padding='same'),
-				torch.nn.GELU(),
+				torch.nn.SiLU(),
 				torch.nn.GroupNorm(1, dim))),
 			torch.nn.Conv2d(dim, dim, kernel_size=1),
-			torch.nn.GELU(),
+			torch.nn.SiLU(),
 			torch.nn.GroupNorm(1, dim)) for d in range(depth)),
 		DetectionHead(dim, num_classes))
