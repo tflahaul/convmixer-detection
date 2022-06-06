@@ -8,7 +8,4 @@ TODO:
 
 ##
 
-<div align="center">
-	<img src="assets/output.png" height=300/>
-	<p>First pre-training 50 iterations</p>
-</div>
+<div align="center"><img src="assets/output.png" height=300/></div>
