@@ -43,7 +43,7 @@ def main() -> None:
 		optimizer.zero_grad()
 		running_loss = 0
 		for minibatch, (images, targets) in enumerate(train_set, 1):
-			out = model(images.to(config.DEVICE))
+			out = model(images.to(config.DEVICE, memory_format=torch.channels_last))
 			loss = criterion(out, targets)
 			running_loss += loss.item()
 			loss.backward()
@@ -54,7 +54,6 @@ def main() -> None:
 		for key, value in criterion.losses.items():
 			metrics[key].append(value.item())
 		print(f"epoch {epoch:>2d}/{config.MAX_ITER:<2d}| loss:{running_loss:.3f}, {(', ').join([f'{k}:{v[-1]:.2f}' for k, v in metrics.items()])}")
-
 	torch.save(model.state_dict(), 'convmixer-1536-20.pth')
 	plot_metrics(metrics)
 
