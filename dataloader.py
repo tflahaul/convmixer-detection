@@ -13,7 +13,7 @@ def _letterbox_resize(image: Tensor, targets: Tensor, size: int):
 	img.paste(image.resize(shape), ((size - shape[0]) // 2, (size - shape[1]) // 2))
 	start = 1 if image.size[0] > image.size[1] else 0
 	new_r = (shape[start] / size)
-	targets[..., start:4:2] = (targets[..., start:4:2] * new_r) + ((1 - new_r) / 2)
+	targets[:, start:4:2] = (targets[:, start:4:2] * new_r) + ((1 - new_r) / 2)
 	return img, targets
 
 class PascalVOC(torch.utils.data.Dataset):

@@ -33,11 +33,10 @@ class HungarianMatcher(torch.nn.Module):
 	@torch.no_grad()
 	def forward(self, outputs: Tensor, targets: list) -> list:
 		B, N, L = outputs.shape
-		out_prob = outputs[..., 4:].view(-1, L - 4)
+		out_prob = outputs[..., 4:].view(-1, L - 4).softmax(1)
 		out_bbox = outputs[..., :4].view(-1, 4)
 		tgt_classes = torch.cat([x[:, -1] for x in targets]).long()
 		tgt_bbox = torch.cat([x[:, :4] for x in targets])
-
 		cost_class = -out_prob[:, tgt_classes]
 		cost_bbox = torch.cdist(out_bbox, tgt_bbox, p=1.0)
 		cost_giou = -generalized_box_iou(out_bbox, tgt_bbox)
@@ -46,7 +45,7 @@ class HungarianMatcher(torch.nn.Module):
 		return [(torch.LongTensor(i), torch.LongTensor(j)) for i, j in indices]
 
 class DETRCriterion(torch.nn.Module):
-	def __init__(self, num_classes, eos_coef = 0.1) -> None:
+	def __init__(self, num_classes, eos_coef: float = 0.1) -> None:
 		super(DETRCriterion, self).__init__()
 		self.num_classes = num_classes
 		self.matcher = HungarianMatcher().to(config.DEVICE)

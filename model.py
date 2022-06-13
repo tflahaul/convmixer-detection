@@ -34,9 +34,8 @@ class DetectionHead(torch.nn.Module):
 		f1 = self.conv1(f0)
 		f2 = self.conv2(f1)
 		out = self.fpn(OrderedDict({'feat0': f1, 'feat1': f2}))
-		out = torch.cat([x.flatten(2, 3).permute(0, 2, 1).contiguous() for x in out.values()], dim=1)
+		out = torch.cat([x.flatten(2, 3).transpose(1, 2) for x in out.values()], dim=1)
 		out[..., :4] = out[..., :4].sigmoid()
-		out[..., 4:] = out[..., 4:].softmax(-1)
 		return out
 
 def ConvMixer(
